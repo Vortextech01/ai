@@ -1,6 +1,6 @@
 import { HfInference } from '@huggingface/inference'
 import { HuggingFaceStream, StreamingTextResponse } from 'ai'
-import { experimental_buildOpenAssistantPrompt } from 'ai/prompts'
+import { experimental_buildLlama2Prompt } from 'ai/prompts'
 
 // Create a new HuggingFace Inference instance
 const Hf = new HfInference(process.env.HUGGINGFACE_API_KEY)
@@ -13,8 +13,8 @@ export async function POST(req: Request) {
   const { messages } = await req.json()
 
   const response = Hf.textGenerationStream({
-    model: 'OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5',
-    inputs: experimental_buildOpenAssistantPrompt(messages),
+    model: 'meta-llama/Llama-2-7b-chat-hf',
+    inputs: experimental_buildLlama2Prompt(messages),
     parameters: {
       max_new_tokens: 200,
       // @ts-ignore (this is a valid parameter specifically in OpenAssistant models)
