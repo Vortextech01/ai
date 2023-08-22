@@ -2,7 +2,18 @@
 title: Next.js Pages Router
 ---
 
+import { Callout } from 'nextra-theme-docs'
+
 # Next.js Pages Router
+
+<Callout>
+  The Next.js Pages Router's API Routes **do not** support streaming responses.
+  You can use the `pages/` directory for the frontend while using an `app/`
+  directory Route Handler for handling your LLM responses with streaming.
+
+See how to use a Route Handler [here](https://sdk.vercel.ai/docs/guides/frameworks/nextjs-app#route-handlers).
+
+</Callout>
 
 ## API routes
 
@@ -12,17 +23,16 @@ The Edge Runtime supports the same Response types as in the App Router, so the c
 
 ```jsx
 import { OpenAIStream, StreamingTextResponse } from 'ai'
-import { Configuration, OpenAIApi } from 'openai-edge'
+import OpenAI from 'openai'
 
 export const runtime = 'edge'
 
-const config = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!
 })
-const openai = new OpenAIApi(config)
 
 export default async function handler(req: Request, res: Response) {
-  const response = await openai.createChatCompletion({
+  const response = await openai.chat.completions.create({
     model: 'gpt-3.5-turbo',
     stream: true,
     messages: [{ role: 'user', content: 'What is love?' }]
@@ -40,19 +50,17 @@ in place of `StreamingTextResponse`.
 ```jsx
 import { OpenAIStream, streamToResponse } from 'ai'
 import { NextApiRequest, NextApiResponse } from 'next'
-import { Configuration, OpenAIApi } from 'openai-edge'
+import OpenAI from 'openai'
 
-const config = new Configuration({
+const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 })
-
-const openai = new OpenAIApi(config)
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const aiResponse = await openai.createChatCompletion({
+  const aiResponse = await openai.chat.completions.create({
     model: 'gpt-3.5-turbo',
     stream: true,
     messages: [{ role: 'user', content: 'What is love?' }]

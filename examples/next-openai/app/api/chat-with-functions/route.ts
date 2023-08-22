@@ -1,28 +1,29 @@
-import { Configuration, OpenAIApi } from 'openai-edge'
-import { OpenAIStream, StreamingTextResponse } from 'ai'
-import { ChatCompletionFunctions } from 'openai-edge/types/api'
-
+import {
+  OpenAIStream,
+  StreamingTextResponse,
+  experimental_StreamData
+} from 'ai'
+import OpenAI from 'openai'
+import { CompletionCreateParams } from 'openai/resources/chat'
 // Create an OpenAI API client (that's edge friendly!)
-const config = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || ''
 })
-const openai = new OpenAIApi(config)
 
 // IMPORTANT! Set the runtime to edge
 export const runtime = 'edge'
 
-const functions: ChatCompletionFunctions[] = [
+const functions: CompletionCreateParams.Function[] = [
   {
     name: 'get_current_weather',
-    description: 'Get the current weather',
+    description: 'Get the current weather.',
     parameters: {
       type: 'object',
       properties: {
         format: {
           type: 'string',
           enum: ['celsius', 'fahrenheit'],
-          description:
-            'The temperature unit to use. Infer this from the users location.'
+          description: 'The temperature unit to use.'
         }
       },
       required: ['format']
@@ -49,13 +50,14 @@ const functions: ChatCompletionFunctions[] = [
 export async function POST(req: Request) {
   const { messages } = await req.json()
 
-  const response = await openai.createChatCompletion({
+  const response = await openai.chat.completions.create({
     model: 'gpt-3.5-turbo-0613',
     stream: true,
     messages,
     functions
   })
 
+  const data = new experimental_StreamData()
   const stream = OpenAIStream(response, {
     experimental_onFunctionCall: async (
       { name, arguments: args },
@@ -67,16 +69,31 @@ export async function POST(req: Request) {
           temperature: 20,
           unit: args.format === 'celsius' ? 'C' : 'F'
         }
+
+        data.append({
+          text: 'Some custom data'
+        })
+
         const newMessages = createFunctionCallMessages(weatherData)
-        return openai.createChatCompletion({
+        return openai.chat.completions.create({
           messages: [...messages, ...newMessages],
           stream: true,
-          model: 'gpt-3.5-turbo-0613',
-          functions
+          model: 'gpt-3.5-turbo-0613'
         })
       }
-    }
+    },
+    onCompletion(completion) {
+      console.log('completion', completion)
+    },
+    onFinal(completion) {
+      data.close()
+    },
+    experimental_streamData: true
   })
 
-  return new StreamingTextResponse(stream)
+  data.append({
+    text: 'Hello, how are you?'
+  })
+
+  return new StreamingTextResponse(stream, {}, data)
 }
