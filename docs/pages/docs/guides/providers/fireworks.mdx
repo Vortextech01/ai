@@ -1,30 +1,39 @@
 ---
-title: OpenAI
+title: Fireworks.ai
 ---
 
 import { Steps, Callout } from 'nextra-theme-docs'
 
-# OpenAI
+# Fireworks.ai
 
-Vercel AI SDK provides a set of utilities to make it easy to use OpenAI's API. In this guide, we'll walk through how to use the utilities to create a chat bot and a text completion app.
+Vercel AI SDK provides a set of utilities to make it easy to use [Fireworks.ai](https://app.fireworks.ai)'s APIs and models. In this guide, we'll walk through how to use the utilities to create a chat bot and a text completion app.
 
-## Guide: Chat Bot
+<Callout>
+  Fireworks.ai's REST APIs [are compatible with
+  OpenAI](https://readme.fireworks.ai/docs/getting-started-with-your-api#openai-python-client-library)'s
+  so we will use OpenAI's JavaScript SDK to make the requests. This makes it
+  very easy to migrate and try out Fireworks.ai's models.
+</Callout>
+
+## Guide: Llama 2 Chatbot
 
 <Steps>
 
 ### Create a Next.js app
 
-Create a Next.js application and install `ai` and `openai`, the Vercel AI SDK and OpenAI API client respectively:
+Create a Next.js application and install `ai` and `openai`, the Vercel AI SDK and OpenAI API client respectively. Fireworks' REST APIs [are compatible with OpenAI](https://readme.fireworks.ai/docs/getting-started-with-your-api#openai-python-client-library)'s so we will use OpenAI's JavaScript SDK to make the requests.
+
+````sh
 
 ```sh
 pnpm dlx create-next-app my-ai-app
 cd my-ai-app
 pnpm install ai openai
-```
+````
 
-### Add your OpenAI API Key to `.env`
+### Add your Fireworks API Key to `.env`
 
-Create a `.env` file in your project root and add your OpenAI API Key:
+Create a `.env` file in your project root and add your Fireworks API Key:
 
 ```env filename=".env"
 OPENAI_API_KEY=xxxxxxxxx
@@ -41,24 +50,26 @@ import OpenAI from 'openai'
 import { OpenAIStream, StreamingTextResponse } from 'ai'
 
 // Create an OpenAI API client (that's edge friendly!)
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+// but configure it to point to fireworks.ai
+const fireworks = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || '',
+  baseURL: 'https://api.fireworks.ai/inference/v1'
 })
-
 // IMPORTANT! Set the runtime to edge
 export const runtime = 'edge'
-
 export async function POST(req: Request) {
   // Extract the `messages` from the body of the request
   const { messages } = await req.json()
 
-  // Ask OpenAI for a streaming chat completion given the prompt
-  const response = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo',
+  // Ask Fireworks for a streaming chat completion using Llama 2 70b model
+  // @see https://app.fireworks.ai/models/fireworks/llama-v2-70b-chat
+  const response = await fireworks.chat.completions.create({
+    model: 'accounts/fireworks/models/llama-v2-70b-chat',
     stream: true,
+    max_tokens: 1000,
     messages
   })
-  // Convert the response into a friendly text-stream
+  // Convert the response into a friendly text-stream.
   const stream = OpenAIStream(response)
   // Respond with the stream
   return new StreamingTextResponse(stream)
@@ -91,30 +102,26 @@ export default function Chat() {
   const { messages, input, handleInputChange, handleSubmit } = useChat()
 
   return (
-    <main className="mx-auto w-full h-screen max-w-lg p-24 flex flex-col">
-      <section className="mb-auto m">
-        {messages.map(m => (
-          <div className="mb-4" key={m.id}>
-            {m.role === 'user' ? 'User: ' : 'AI: '}
-            {m.content}
-          </div>
-        ))}
-      </section>
-      <form className="flex space-x-4" onSubmit={handleSubmit}>
-        <input
-          className="rounded-md p-2 text-black"
-          value={input}
-          onChange={handleInputChange}
-          placeholder="Say something..."
-        />
-        <button
-          className="border-solid border-2 border-white p-2 rounded-md"
-          type="submit"
-        >
-          Send
-        </button>
+    <div className="mx-auto w-full max-w-md py-24 flex flex-col stretch">
+      {messages.map(m => (
+        <div key={m.id}>
+          {m.role === 'user' ? 'User: ' : 'AI: '}
+          {m.content}
+        </div>
+      ))}
+
+      <form onSubmit={handleSubmit}>
+        <label>
+          Say something...
+          <input
+            className="fixed w-full max-w-md bottom-0 border border-gray-300 rounded mb-8 shadow-xl p-2"
+            value={input}
+            onChange={handleInputChange}
+          />
+        </label>
+        <button type="submit">Send</button>
       </form>
-    </main>
+    </div>
   )
 }
 ```
@@ -127,17 +134,18 @@ export default function Chat() {
 
 ### Use the Completion API
 
-Similar to the Chat Bot example above, we'll create a Next.js Route Handler that generates a text completion via OpenAI that we'll then stream back to our Next.js. It accepts a `POST` request with a `prompt` string:
+Similar to the Chatbot example above, we'll create a Next.js Route Handler that generates a text completion via OpenAI that we'll then stream back to our Next.js. It accepts a `POST` request with a `prompt` string:
 
 ```tsx filename="app/api/completion/route.ts" showLineNumbers
 import OpenAI from 'openai'
 import { OpenAIStream, StreamingTextResponse } from 'ai'
 
 // Create an OpenAI API client (that's edge friendly!)
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+// but configure it to point to fireworks.ai
+const fireworks = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || '',
+  baseURL: 'https://api.fireworks.ai/inference/v1'
 })
-
 // IMPORTANT! Set the runtime to edge
 export const runtime = 'edge'
 
@@ -145,23 +153,16 @@ export async function POST(req: Request) {
   // Extract the `prompt` from the body of the request
   const { prompt } = await req.json()
 
-  // Ask OpenAI for a streaming completion given the prompt
-  const response = await openai.completions.create({
-    model: 'text-davinci-003',
+  // Ask Fireworks for a streaming chat completion using Llama 2 70b model
+  // @see https://app.fireworks.ai/models/fireworks/llama-v2-70b-chat
+  const response = await fireworks.completions.create({
+    model: 'accounts/fireworks/models/llama-v2-70b-chat',
     stream: true,
-    prompt
+    max_tokens: 1000,
+    promopt
   })
-
-  // Check for errors
-  if (!response.ok) {
-    return new Response(await response.text(), {
-      status: response.status
-    })
-  }
-
-  // Convert the response into a friendly text-stream
+  // Convert the response into a friendly text-stream.
   const stream = OpenAIStream(response)
-
   // Respond with the stream
   return new StreamingTextResponse(stream)
 }
@@ -245,35 +246,3 @@ export async function POST(req: Request) {
   return new StreamingTextResponse(stream)
 }
 ```
-
-## Guide: Use with Azure OpenAI Service
-
-You can pass custom options to the `Configuration` from the OpenAI package to connect to the an Azure instance.
-See the [OpenAI client repository](https://github.com/openai/openai-node/blob/v4/examples/azure.ts) for a more complete example.
-
-```tsx filename="app/api/completion/route.ts"
-import OpenAI from 'openai'
-
-const resource = '<your resource name>'
-const model = '<your model>'
-
-const apiKey = process.env.AZURE_OPENAI_API_KEY
-if (!apiKey) {
-  throw new Error('AZURE_OPENAI_API_KEY is missing from the environment.')
-}
-
-// Azure OpenAI requires a custom baseURL, api-version query param, and api-key header.
-const openai = new OpenAI({
-  apiKey,
-  baseURL: `https://${resource}.openai.azure.com/openai/deployments/${model}`,
-  defaultQuery: { 'api-version': '2023-06-01-preview' },
-  defaultHeaders: { 'api-key': apiKey }
-})
-```
-
-<Callout>
-  Note: Before the release of `openai@4`, we previously recommended using the
-  `openai-edge` library because of it's compatibility with Vercel Edge Runtime.
-  The OpenAI SDK now supports Edge Runtime out of the box, so we recommend using
-  the official `openai` library instead.
-</Callout>

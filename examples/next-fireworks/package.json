@@ -1,5 +1,5 @@
 {
-  "name": "next-langchain",
+  "name": "next-fireworks",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "ai": "2.2.9",
-    "langchain": "^0.0.129",
     "next": "13.4.12",
+    "openai": "4.2.0",
     "react": "18.2.0",
     "react-dom": "^18.2.0"
   },
